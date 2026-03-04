@@ -5,64 +5,86 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Aegis Journey</title>
     <style>
-        :root { --bg: #0D0D0D; --primary: #9D4EDD; --secondary: #2A1A4D; --text: #E0E0E0; --danger: #FF4D4D; --success: #4CAF50; }
-        body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui; margin: 0; display: flex; flex-direction: column; align-items: center; height: 100vh; justify-content: center; }
-        #main-ui { display: none; text-align: center; width: 90%; }
-        #setup-ui { text-align: center; padding: 20px; }
-        .circle { width: 260px; height: 260px; border-radius: 50%; border: 4px solid var(--secondary); border-top-color: var(--primary); margin: 20px auto; display: flex; flex-direction: column; justify-content: center; transition: border-color 0.3s; }
-        .paused { border-top-color: #555 !important; opacity: 0.6; }
-        .stat-label { font-size: 12px; letter-spacing: 2px; text-transform: uppercase; color: #888; }
+        :root { --bg: #0D0D0D; --primary: #9D4EDD; --secondary: #2A1A4D; --text: #E0E0E0; --danger: #FF4D4D; --success: #4CAF50; --card: #1A1A1A; }
+        body { background: var(--bg); color: var(--text); font-family: -apple-system, system-ui; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 20px 0; }
+        
+        #main-ui, #setup-ui { text-align: center; width: 90%; max-width: 400px; }
+        #main-ui { display: none; }
+        #setup-ui { margin-top: 15vh; }
+        
+        /* Progress Bar Styles */
+        .progress-container { width: 100%; height: 8px; background: #222; border-radius: 10px; margin: 20px 0; overflow: hidden; }
+        #progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--secondary), var(--primary)); transition: width 0.5s; }
+        .goal-text { font-size: 12px; color: #888; margin-top: -10px; margin-bottom: 20px; }
+
+        .circle { width: 240px; height: 240px; border-radius: 50%; border: 4px solid var(--secondary); border-top-color: var(--primary); margin: 20px auto; display: flex; flex-direction: column; justify-content: center; transition: 0.3s; }
         .stat-value { font-size: 54px; font-weight: 800; margin: 5px 0; color: #FFF; }
-        .stat-sub { font-size: 18px; color: var(--primary); font-weight: 300; }
-        .btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 12px; font-size: 14px; font-weight: bold; margin-top: 10px; width: 100%; cursor: pointer; }
-        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
-        .btn-restart { background: none; border: 1px solid #444; color: #888; margin-top: 30px; font-size: 12px; }
-        .btn-pause { background: #333; }
-        .btn-resume { background: var(--success); }
+        .stat-sub { font-size: 18px; color: var(--primary); }
+        
+        .input-box { background: var(--card); border: 1px solid #333; color: white; padding: 15px; border-radius: 12px; width: 80%; margin-bottom: 15px; font-size: 16px; text-align: center; }
+        .btn { background: var(--secondary); color: white; border: none; padding: 15px; border-radius: 12px; font-weight: bold; width: 100%; margin-top: 10px; cursor: pointer; }
+        .btn-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        
+        #history-section { margin-top: 40px; text-align: left; width: 100%; border-top: 1px solid #333; padding-top: 20px; }
+        .history-item { background: var(--card); padding: 12px; border-radius: 8px; margin-bottom: 8px; display: flex; justify-content: space-between; font-size: 14px; border-left: 3px solid var(--primary); }
+        .btn-restart { background: none; border: 1px solid var(--danger); color: var(--danger); margin-top: 30px; font-size: 12px; opacity: 0.5; }
     </style>
 </head>
 <body>
 
     <div id="setup-ui">
-        <h1 style="color: var(--primary)">Aegis</h1>
-        <button class="btn" onclick="startJourney()">BEGIN JOURNEY</button>
+        <h1 style="color: var(--primary)">AEGIS</h1>
+        <p>Set your target (in days):</p>
+        <input type="number" id="goal-input" class="input-box" placeholder="e.g. 30" value="7">
+        <button class="btn" onclick="startJourney()" style="background: var(--primary)">START JOURNEY</button>
     </div>
 
     <div id="main-ui">
-        <div class="stat-label" id="status-text">Active Streak</div>
         <div class="circle" id="timer-display">
             <div id="days" class="stat-value">0</div>
             <div id="sub-time" class="stat-sub">00:00:00</div>
         </div>
+
+        <div class="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+        <div id="goal-status" class="goal-text">Goal: 0 days</div>
         
         <div class="btn-group">
-            <button id="pause-btn" class="btn btn-pause" onclick="togglePause()">PAUSE</button>
-            <button class="btn" onclick="alert('Progress saved.')">CHECK-IN</button>
+            <button id="pause-btn" class="btn" style="background: #333;" onclick="togglePause()">PAUSE</button>
+            <button class="btn" style="background: var(--secondary)" onclick="alert('Keep going.')">CHECK-IN</button>
         </div>
 
         <button class="btn btn-restart" onclick="confirmRestart()">RESTART STREAK</button>
+
+        <div id="history-section">
+            <div id="history-list"></div>
+        </div>
     </div>
 
     <script>
         let startTime = parseInt(localStorage.getItem('aegis_start'));
         let accumulatedTime = parseInt(localStorage.getItem('aegis_accumulated')) || 0;
         let isPaused = localStorage.getItem('aegis_paused') === 'true';
+        let goalDays = parseInt(localStorage.getItem('aegis_goal')) || 7;
+        let history = JSON.parse(localStorage.getItem('aegis_history')) || [];
 
         function startJourney() {
+            const input = document.getElementById('goal-input').value;
+            goalDays = parseInt(input) || 7;
             startTime = new Date().getTime();
             accumulatedTime = 0;
             isPaused = false;
+            localStorage.setItem('aegis_goal', goalDays);
             save();
             init();
         }
 
         function togglePause() {
             if (!isPaused) {
-                // Pausing: add current session to accumulated
                 accumulatedTime += new Date().getTime() - startTime;
                 isPaused = true;
             } else {
-                // Resuming: set a new start point
                 startTime = new Date().getTime();
                 isPaused = false;
             }
@@ -71,63 +93,6 @@
         }
 
         function confirmRestart() {
-            if (confirm("Are you sure you want to reset your streak to zero?")) {
-                localStorage.clear();
-                location.reload();
-            }
-        }
-
-        function save() {
-            localStorage.setItem('aegis_start', startTime);
-            localStorage.setItem('aegis_accumulated', accumulatedTime);
-            localStorage.setItem('aegis_paused', isPaused);
-        }
-
-        function updateUI() {
-            const pauseBtn = document.getElementById('pause-btn');
-            const display = document.getElementById('timer-display');
-            const status = document.getElementById('status-text');
-
-            if (isPaused) {
-                pauseBtn.innerText = "RESUME";
-                pauseBtn.className = "btn btn-resume";
-                display.classList.add('paused');
-                status.innerText = "Paused";
-            } else {
-                pauseBtn.innerText = "PAUSE";
-                pauseBtn.className = "btn btn-pause";
-                display.classList.remove('paused');
-                status.innerText = "Active Streak";
-            }
-        }
-
-        function update() {
-            if (isPaused) return;
-
-            const now = new Date().getTime();
-            const totalMs = (now - startTime) + accumulatedTime;
-
-            const d = Math.floor(totalMs / 86400000);
-            const h = Math.floor((totalMs % 86400000) / 3600000);
-            const m = Math.floor((totalMs % 3600000) / 60000);
-            const s = Math.floor((totalMs % 60000) / 1000);
-
-            document.getElementById('days').innerText = d;
-            document.getElementById('sub-time').innerText = 
-                `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-        }
-
-        function init() {
-            if (startTime) {
-                document.getElementById('setup-ui').style.display = 'none';
-                document.getElementById('main-ui').style.display = 'block';
-                updateUI();
-                update();
-                setInterval(update, 1000);
-            }
-        }
-
-        init();
-    </script>
-</body>
-</html>
+            if (confirm("End streak and log it?")) {
+                const now = new Date();
+                const totalMs = (isPaused ? 0 :
